@@ -213,7 +213,6 @@ def start_training_task_noniid():
     model, prototypes = train_mnist_noniid(args=args, epochs=epochs, user_data_loaders=user_data_loaders, test_loader=test_loader, learning_rate=0.0001)
     calculate_prototype_distances(prototypes)
     print("Finish training")
-start_training_task_noniid()
 
 
 
