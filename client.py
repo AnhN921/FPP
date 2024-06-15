@@ -25,11 +25,6 @@ def on_message(client, userdata, msg):
 def on_subscribe(client, userdata, mid, granted_qos):
     print_log("Subscribed: " + str(mid) + " " + str(granted_qos))
 
-def send_prototypes_to_server(client_id, prototypes, server):
-    topic = f"dynamicFL/res/{client_id}"
-    payload = json.dumps({"task": "WRITE_MODEL", "prototypes": prototypes})
-    server.publish(topic, payload)
-
 
 if __name__ == "__main__":
     # start_line

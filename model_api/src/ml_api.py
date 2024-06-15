@@ -26,7 +26,7 @@ from datetime import datetime
 import time
 import sys
 
-# from glob_inc.utils import *
+from glob_inc.utils import *
 
 # print_log("Load data ......")
 
@@ -362,7 +362,7 @@ def start_training_task(start_line, start_benign):
 def aggregated_models(client_trainres_dict, n_round):
     # Khởi tạo một OrderedDict để lưu trữ tổng của các tham số của mỗi layer
     sum_state_dict = OrderedDict()
-
+    print_log("##### PUNISHMENT HERE #####")
     # Lặp qua các giá trị của dict chính và cộng giá trị của từng tham số vào sum_state_dict
     for client_id, state_dict in client_trainres_dict.items():
         for key, value in state_dict.items():

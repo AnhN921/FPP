@@ -3,20 +3,15 @@ import time
 import json
 import paho.mqtt.client as client
 import logging
-import torch
 
 from glob_inc.server_fl import *
 from model_api.src.ml_api import aggregated_models
-import numpy as np
+
 LOG_DIR = 'logs'
 LOG_FILE = f"{LOG_DIR}/app-{datetime.today().strftime('%Y-%m-%d')}.log"
-NUM_CLASSES = 10
-PROTOTYPE_DIM = 784
+
 broke_name = "100.95.25.52"
 n_round = 0
-client_dict = {}
-client_trainres_dict = {}
-server_prototypes = {label: np.zeros(PROTOTYPE_DIM) for label in range(NUM_CLASSES)}
 
 # Create log directory if it doesn't exist
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -83,7 +78,7 @@ def handle_ping_res(this_client_id, msg):
             count_eva_conn_ok = sum(1 for client_info in client_dict.values() if client_info["state"] == "eva_conn_ok")
             if count_eva_conn_ok == NUM_DEVICE:
                 print_log("publish to " + "dynamicFL/model/all_client")
-                send_model("saved_model/MNIST.pt", server, this_client_id)
+                send_model("saved_model/LSTMModel.pt", server, this_client_id)
 
 
 def handle_train_res(this_client_id, msg):
@@ -145,6 +140,9 @@ def end_round():
     logger.info(f"server end round {n_round}")
     print_log(f"server end round {n_round}")
     round_state = "finished"
+
+    print_log("##### calculate_prototype_distances #####") # gọi hàm calculate distance ở đây!
+
     if n_round < NUM_ROUND:
         handle_next_round_duration()
         do_aggregate()
@@ -162,27 +160,6 @@ def end_round():
 def on_subscribe(mosq, obj, mid, granted_qos):
     print_log("Subscribed: " + str(mid) + " " + str(granted_qos))
 
-def aggregated_models(client_trainres_dict, n_round):
-    for client_id in client_trainres_dict:
-        client_weight = client_trainres_dict[client_id]
-        for label in range(NUM_CLASSES):
-            server_prototypes[label] += client_weight[label]
-
-def send_task(task, server, client_id):
-    server.publish(f"dynamicFL/req/{client_id}", json.dumps({"task": task}), qos=1)
-    print_log(f"Sent task {task} to {client_id}")
-
-def calculate_prototype_distance():
-    for label in range(NUM_CLASSES):
-        server_proto = server_prototypes[label]
-        for client_id in client_trainres_dict:
-            client_proto = client_trainres_dict[client_id][label]
-            distance = torch.cdist(server_proto, client_proto, p=2)
-            #distance = np.linalg.norm(server_proto - client_proto)
-            print_log(f"Round {n_round}, Label {label}: Distance from server prototype to client {client_id} prototype is {distance}")
-            print("Distance Matrix:")
-            print(distance)
-
 
 if __name__ == "__main__":
     NUM_ROUND = 3
@@ -190,6 +167,7 @@ if __name__ == "__main__":
     global global_model
     client_dict = {}
     client_trainres_dict = {}
+    client_trainres_protos = {}
     # round_duration = 50
     time_between_two_round = 10
     round_state = "finished"
@@ -211,6 +189,6 @@ if __name__ == "__main__":
         time.sleep(1)
 
     start_round()
-    server.thread.join()
+    server._thread.join()
     time.sleep(10)
     print_log("server exits")

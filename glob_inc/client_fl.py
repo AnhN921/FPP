@@ -2,6 +2,8 @@ from glob_inc.utils import *
 import paho.mqtt.publish as publish
 import paho.mqtt.subscribe as subscribe
 import json
+# from model_api.src.ml_api import start_training_task
+from Mnist1 import start_training_task_noniid
 
 broker_name = "100.95.25.52"
 
@@ -14,6 +16,7 @@ start_benign = 0
 # total_data_dgas = 1980
 num_line = 50
 num_file = 1
+
 
 # chi tinh main dga nhung so luong benign van = dgas
 # len_dga_types = 1
@@ -40,7 +43,7 @@ def do_train(client):
 
     print_log(f"start training")
     client_id = client._client_id.decode("utf-8")
-    result = start_training_task_noniid(start_line, start_benign)
+    result, protos = start_training_task_noniid()
 
     start_line = start_line + num_line
     start_benign = start_benign + 10*num_line
@@ -49,7 +52,8 @@ def do_train(client):
     result_np = {key: value.cpu().numpy().tolist() for key, value in result.items()}
     payload = {
         "task": "TRAIN",
-        "weight": result_np
+        "weight": result_np,
+        "protos": protos
     }
     client.publish(topic="dynamicFL/res/" + client_id, payload=json.dumps(payload))
     print_log(f"end training")
@@ -125,4 +129,3 @@ def handle_model(client, userdata, msg):
         "task": "WRITE_MODEL"
     }
     client.publish(topic="dynamicFL/res/" + client_id, payload=json.dumps(result))
-
