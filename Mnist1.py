@@ -17,11 +17,12 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
+from tqdm import tqdm
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 learning_rate = 0.0001
-epochs = 20
+epochs = 1
 num_users = 10
 n_list = [40] * num_users  # Số lượng mẫu mỗi người dùng
 k_list = [40] * num_users  # Số lượng mẫu mỗi lớp cho mỗi người dùng
@@ -74,7 +75,7 @@ def mnist_noniid_lt(train_dataset, num_users, n_list, k_list, classes_list):
     for i in range(num_users):
         k = 40
         classes = classes_list[i]
-        print("local test classes:", classes)
+        # print("local test classes:", classes)
         user_data = np.array([])
         for each_class in classes:
             begin = i*40 + label_begin[each_class.item()]
@@ -140,11 +141,10 @@ class Lenet(nn.Module):
         protos = self.fc3(x)
         x = F.log_softmax(self.fc3(x), dim=1)
         return protos, x
-"""x = torch.randn((1, 1, 28, 28)).to(device)
-model = FashionCNN().to(device)
-x, proto = model(x)
-print(x.size())
-print(proto.size())"""
+
+def tensor_to_list(tensor):
+    return tensor.detach().cpu().tolist()
+
 def train_mnist_noniid(epochs, user_data_loaders, test_loader, learning_rate=0.0001):
     model = Lenet().to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -153,7 +153,7 @@ def train_mnist_noniid(epochs, user_data_loaders, test_loader, learning_rate=0.0
 
     for epoch in range(1, epochs + 1):  
         model.train()
-        for user_loader in user_data_loaders:
+        for user_loader in tqdm(user_data_loaders):
             for batch_idx, (data, target) in enumerate(user_loader):
                 data, target = data.to(device), target.to(device)
                 batch_idx = int(batch_idx)
@@ -193,9 +193,13 @@ def train_mnist_noniid(epochs, user_data_loaders, test_loader, learning_rate=0.0
     for label in prototypes:
         protos, count = prototypes[label]
         prototypes[label] = protos / count
-        print(f'Label: {label}, Prototype: {prototypes[label]}, Count: {count}')
-
-    return model, prototypes
+        # print(f'Label: {label}, Prototype: {prototypes[label]}, Count: {count}')
+    
+    protos = {label: prototypes[label] for label in prototypes}
+    protos = {label: tensor_to_list(prototypes[label]) for label in prototypes}
+    # prototypes_json = {label: tensor_to_list(prototypes[label]) for label in prototypes}
+    # print(prototypes)
+    return model.state_dict(), protos
 
 def calculate_prototype_distances(prototypes):
     labels = sorted(prototypes.keys())
@@ -214,8 +218,8 @@ def start_training_task_noniid():
     dict_users = mnist_noniid_lt(test_loader.dataset, num_users, n_list, k_list, classes_list)
     user_data_loaders = get_data_loaders(train_loader.dataset, dict_users)
     model, prototypes = train_mnist_noniid(epochs=epochs, user_data_loaders=user_data_loaders, test_loader=test_loader, learning_rate=0.0001)
-    calculate_prototype_distances(prototypes)
-    print("Finish training")
+    # calculate_prototype_distances(prototypes)
+    # print("Finish training")
     return model, prototypes
 
 # start_training_task_noniid()
