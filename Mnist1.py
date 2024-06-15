@@ -46,7 +46,8 @@ def get_mnist():
     #train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=4)
     return train_loader, test_loader
 
-def mnist_noniid_lt(args, train_dataset, num_users, n_list, k_list, classes_list):
+# noniid
+def mnist_noniid_lt(train_dataset, num_users, n_list, k_list, classes_list):
     """
     Sample non-I.I.D client data from MNIST dataset
     :param dataset:
@@ -91,6 +92,7 @@ def get_data_loaders(dataset, dict_users):
         user_data_loader = DataLoader(dataset, batch_size=64, sampler=user_sampler)
         user_data_loaders.append(user_data_loader)
     return user_data_loaders
+
 """class FashionCNN(nn.Module):
     def __init__(self):
         super(FashionCNN, self).__init__()
@@ -118,6 +120,7 @@ def get_data_loaders(dataset, dict_users):
         protos = self.fc3(out)
         out = F.log_softmax(self.fc3(out), dim=1)
         return out, protos"""
+
 class Lenet(nn.Module):
     def __init__(self):
         super(Lenet, self).__init__()
@@ -142,7 +145,7 @@ model = FashionCNN().to(device)
 x, proto = model(x)
 print(x.size())
 print(proto.size())"""
-def train_mnist_noniid(args, epochs, user_data_loaders, test_loader, learning_rate=0.0001):
+def train_mnist_noniid(epochs, user_data_loaders, test_loader, learning_rate=0.0001):
     model = Lenet().to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     criterion = torch.nn.CrossEntropyLoss()
@@ -205,15 +208,17 @@ def calculate_prototype_distances(prototypes):
     return dist_matrix, labels 
 
 def start_training_task_noniid():
-    args = args_parser()
+    # args = args_parser()
     num_users = 10  # Số lượng người dùng
     train_loader, test_loader = get_mnist()
-    dict_users = mnist_noniid_lt(args, test_loader.dataset, num_users, n_list, k_list, classes_list)
+    dict_users = mnist_noniid_lt(test_loader.dataset, num_users, n_list, k_list, classes_list)
     user_data_loaders = get_data_loaders(train_loader.dataset, dict_users)
-    model, prototypes = train_mnist_noniid(args=args, epochs=epochs, user_data_loaders=user_data_loaders, test_loader=test_loader, learning_rate=0.0001)
+    model, prototypes = train_mnist_noniid(epochs=epochs, user_data_loaders=user_data_loaders, test_loader=test_loader, learning_rate=0.0001)
     calculate_prototype_distances(prototypes)
     print("Finish training")
-start_training_task_noniid()
+    return model, prototypes
+
+# start_training_task_noniid()
 
 
 
