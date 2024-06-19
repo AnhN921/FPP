@@ -366,10 +366,15 @@ def aggregated_models(client_trainres_dict, n_round, penalty_lambda):
     # Lặp qua các giá trị của dict chính và cộng giá trị của từng tham số vào sum_state_dict
     for client_id, state_dict in client_trainres_dict.items():
         for key, value in state_dict.items():
-            if key in sum_state_dict:
-                sum_state_dict[key] = sum_state_dict[key] + torch.tensor(value, dtype=torch.float32) * penalty_lambda[key]
+            full_key = key.split('.')[-1]  
+            if full_key in penalty_lambda:
+                if not isinstance(value, torch.Tensor):
+                    value = torch.tensor(value, dtype=torch.float32)
+                sum_state_dict[key] = sum_state_dict.get(key, torch.zeros_like(value)) + value * penalty_lambda[full_key]
             else:
-                sum_state_dict[key] = torch.tensor(value, dtype=torch.float32) * penalty_lambda[key]
+                if not isinstance(value, torch.Tensor):
+                    value = torch.tensor(value, dtype=torch.float32)
+                sum_state_dict[key] = sum_state_dict.get(key, torch.zeros_like(value)) + value
 
     # Tính tổng các hệ số phạt 
     total_penalty = sum(penalty_lambda.values())
@@ -379,4 +384,6 @@ def aggregated_models(client_trainres_dict, n_round, penalty_lambda):
     torch.save(avg_state_dict, "saved_model/LSTMModel.pt")
     # delete parameter in client_trainres to start new round
     client_trainres_dict.clear()
+
+
 

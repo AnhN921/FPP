@@ -7,7 +7,7 @@ import numpy as np
 
 from glob_inc.server_fl import *
 from model_api.src.ml_api import aggregated_models
-from Mnist1 import calculate_prototype_distance
+from Mnist1 import calculate_prototype_distance, calculate_penalty
 
 LOG_DIR = 'logs'
 LOG_FILE = f"{LOG_DIR}/app-{datetime.today().strftime('%Y-%m-%d')}.log"
@@ -127,7 +127,9 @@ def start_round():
 def do_aggregate():
     print_log("Do aggregate ...")
     logger.info("start aggregate ...")
-    aggregated_models(client_trainres_dict, n_round)
+    dist_state_dict = calculate_prototype_distance(client_trainres_dict, n_round)
+    penalty_lambda = calculate_penalty(dist_state_dict)
+    aggregated_models(client_trainres_dict, n_round, penalty_lambda)
     logger.info("end aggregate!")
 
 

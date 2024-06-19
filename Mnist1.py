@@ -223,14 +223,31 @@ def calculate_prototype_distance(client_trainres_dict, n_round):
     torch.save(dist_state_dict, "saved_model/distance.pt")
     return dist_state_dict    
 
-def calculate_penalty(dist_state_dict):
+"""def calculate_penalty(dist_state_dict):
     penalty_lambda = {}
     for label in dist_state_dict:
         distances = list(dist_state_dict[label].values())
         penalty = sum([1 / d for d in distances]) if len(distances) > 0 else 0.0
         penalty_lambda[label] = penalty
-    return penalty_lambda
+    return penalty_lambda"""
  
+def calculate_penalty(dist_state_dict):
+    penalty_lambda = {}
+    for label in dist_state_dict:
+        distances = list(dist_state_dict[label].values())
+        penalty = sum([1 / d for d in distances]) if len(distances) > 0 else 0.0
+        # Thêm các khóa tương ứng với các tham số trong mô hình
+        penalty_lambda[label + '.conv1.weight'] = penalty
+        penalty_lambda[label + '.conv1.bias'] = penalty
+        penalty_lambda[label + '.conv2.weight'] = penalty
+        penalty_lambda[label + '.conv2.bias'] = penalty
+        penalty_lambda[label + '.fc1.weight'] = penalty
+        penalty_lambda[label + '.fc1.bias'] = penalty
+        penalty_lambda[label + '.fc2.weight'] = penalty
+        penalty_lambda[label + '.fc2.bias'] = penalty
+    return penalty_lambda
+
+
 def start_training_task_noniid():
     # args = args_parser()
     num_users = 10  # Số lượng người dùng
@@ -238,10 +255,10 @@ def start_training_task_noniid():
     dict_users = mnist_noniid_lt(test_loader.dataset, num_users, n_list, k_list, classes_list)
     user_data_loaders = get_data_loaders(train_loader.dataset, dict_users)
     model, prototypes = train_mnist_noniid(epochs=epochs, user_data_loaders=user_data_loaders, test_loader=test_loader, learning_rate=0.0001)
-    dist_state_dict = calculate_prototype_distance(prototypes)
-    penalty_lambda = calculate_penalty(dist_state_dict)
+    #dist_state_dict = calculate_prototype_distance(prototypes)
+    #penalty_lambda = calculate_penalty(dist_state_dict)
     # calculate_prototype_distances(prototypes)
     # print("Finish training")
-    return model, prototypes, penalty_lambda
+    return model, prototypes 
 
 # start_training_task_noniid() 
