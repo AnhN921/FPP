@@ -2,12 +2,12 @@ import torch
 import os
 
 # Tải tensor từ file
-tensor = torch.load('/Users/ngocanh/Downloads/DynamicFL2/mymodel.pt')
+tensor = torch.load('/Users/ngocanh/Downloads/FPP/distances_round_1.pt')
 print(tensor)
 import torch
 
 # Tải nội dung từ file .pt
-content = torch.load('/Users/ngocanh/Downloads/DynamicFL2/mymodel.pt')
+content = torch.load('/Users/ngocanh/Downloads/FPP/distances_round_1.pt')
 state_dict = {
     'state': {
         0: {'step': 1400, 'exp_avg': torch.tensor([0.1, 0.2]), 'exp_avg_sq': torch.tensor([0.01, 0.04])},

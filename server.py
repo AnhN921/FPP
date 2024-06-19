@@ -3,12 +3,15 @@ import time
 import json
 import paho.mqtt.client as client
 import logging
+import numpy as np
 
 from glob_inc.server_fl import *
 from model_api.src.ml_api import aggregated_models
+from Mnist1 import calculate_prototype_distance
 
 LOG_DIR = 'logs'
 LOG_FILE = f"{LOG_DIR}/app-{datetime.today().strftime('%Y-%m-%d')}.log"
+
 
 broke_name = "100.95.25.52"
 n_round = 0
@@ -141,7 +144,8 @@ def end_round():
     print_log(f"server end round {n_round}")
     round_state = "finished"
 
-    print_log("##### calculate_prototype_distances #####") # gọi hàm calculate distance ở đây!
+    print_log("##### calculate_prototype_distances #####") # gọi hàm calculate distance ở đây!  #D      
+    calculate_prototype_distance(client_trainres_dict, n_round)
 
     if n_round < NUM_ROUND:
         handle_next_round_duration()

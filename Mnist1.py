@@ -18,7 +18,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 from tqdm import tqdm
-
+import seaborn as sns 
+from collections import OrderedDict
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 learning_rate = 0.0001
@@ -27,6 +28,9 @@ num_users = 10
 n_list = [40] * num_users  # Số lượng mẫu mỗi người dùng
 k_list = [40] * num_users  # Số lượng mẫu mỗi lớp cho mỗi người dùng
 classes_list = [np.random.choice(range(10), size=10, replace=False) for _ in range(num_users)]  # Danh sách các lớp mỗi người dùng
+NUM_CLASSES = 10
+PROTOTYPE_DIM = 784
+server_prototypes = {label: np.zeros(PROTOTYPE_DIM) for label in range(NUM_CLASSES)}
 
 def get_mnist():
     # Define data transformations
@@ -149,27 +153,27 @@ def train_mnist_noniid(epochs, user_data_loaders, test_loader, learning_rate=0.0
     model = Lenet().to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     criterion = torch.nn.CrossEntropyLoss()
-    prototypes ={}   # {i: (torch.zeros(192).to(device), 0) for i in range(10)}
+    prototypes = {}
 
-    for epoch in range(1, epochs + 1):  
+    for epoch in range(1, epochs + 1):
         model.train()
         for user_loader in tqdm(user_data_loaders):
             for batch_idx, (data, target) in enumerate(user_loader):
                 data, target = data.to(device), target.to(device)
-                batch_idx = int(batch_idx)
                 output, protos = model(data)
-                loss = criterion(output, target)  
+                loss = criterion(output, target)
+                optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-                # Cập nhật prototypes sau mỗi batch
                 with torch.no_grad():
                     for j in range(target.size(0)):
                         label = target[j].item()
                         if label not in prototypes:
-                            prototypes[label] = (protos[j], 0)  
-                        prototype, count = prototypes[label]
-                        prototypes[label] = (prototype, count + 1)       
-        # Kiểm tra trên tập kiểm tra sau mỗi epoch
+                            prototypes[label] = (protos[j], 1)  # Initialize prototype
+                        else:
+                            prototype, count = prototypes[label]
+                            prototypes[label] = (prototype + protos[j], count + 1)  # Accumulate prototype
+
         model.eval()
         test_loss = 0
         correct = 0
@@ -183,6 +187,7 @@ def train_mnist_noniid(epochs, user_data_loaders, test_loader, learning_rate=0.0
         test_loss /= len(test_loader.dataset)
         accuracy = 100. * correct / len(test_loader.dataset)
         print(f'Epoch: {epoch}, Test Loss: {test_loss:.4f}, Accuracy: {accuracy:.3f}%')
+
     torch.save({
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
@@ -190,27 +195,42 @@ def train_mnist_noniid(epochs, user_data_loaders, test_loader, learning_rate=0.0
         'accuracy': accuracy,
         'prototypes': prototypes
     }, 'mymodel.pt')
+
+    # Normalize prototypes
     for label in prototypes:
         protos, count = prototypes[label]
         prototypes[label] = protos / count
-        # print(f'Label: {label}, Prototype: {prototypes[label]}, Count: {count}')
-    
-    protos = {label: prototypes[label] for label in prototypes}
-    protos = {label: tensor_to_list(prototypes[label]) for label in prototypes}
-    # prototypes_json = {label: tensor_to_list(prototypes[label]) for label in prototypes}
-    # print(prototypes)
-    return model.state_dict(), protos
 
-def calculate_prototype_distances(prototypes):
-    labels = sorted(prototypes.keys())
-    protos = [prototypes[label] for label in labels]
-    proto_tensor = torch.stack(protos)    # Chuyển list các prototype thành tensor
-    #dist_matrix = torch.nn.functional.pairwise_distance(proto_tensor, proto_tensor)
-    dist_matrix = torch.cdist(proto_tensor.unsqueeze(0), proto_tensor.unsqueeze(0), p=2)
-    print("Distance Matrix:")
-    print(dist_matrix)
-    return dist_matrix, labels 
+    # Convert prototypes to lists
+    protos = {label: prototypes[label].tolist() for label in prototypes}
 
+    return model.state_dict(), protos 
+
+def calculate_prototype_distance(client_trainres_dict, n_round):
+    dist_state_dict = OrderedDict()
+    for label in range(NUM_CLASSES):
+        server_proto = server_prototypes[label]
+        for client_id in client_trainres_dict:
+            if label in client_trainres_dict[client_id]:
+                client_proto = client_trainres_dict[client_id][label]
+                distance = np.linalg.norm(server_proto - client_proto)
+                if label not in dist_state_dict:
+                    dist_state_dict[label] = {}
+                dist_state_dict[label][client_id] = distance
+            else:
+                print(f"Label {label} not found in client {client_id}'s data")
+    torch.save(dist_state_dict, f'distances_round_{n_round}.pt')
+    torch.save(dist_state_dict, "saved_model/distance.pt")
+    return dist_state_dict    
+
+def calculate_penalty(dist_state_dict):
+    penalty_lambda = {}
+    for label in dist_state_dict:
+        distances = list(dist_state_dict[label].values())
+        penalty = sum([1 / d for d in distances]) if len(distances) > 0 else 0.0
+        penalty_lambda[label] = penalty
+    return penalty_lambda
+ 
 def start_training_task_noniid():
     # args = args_parser()
     num_users = 10  # Số lượng người dùng
@@ -218,12 +238,10 @@ def start_training_task_noniid():
     dict_users = mnist_noniid_lt(test_loader.dataset, num_users, n_list, k_list, classes_list)
     user_data_loaders = get_data_loaders(train_loader.dataset, dict_users)
     model, prototypes = train_mnist_noniid(epochs=epochs, user_data_loaders=user_data_loaders, test_loader=test_loader, learning_rate=0.0001)
+    dist_state_dict = calculate_prototype_distance(prototypes)
+    penalty_lambda = calculate_penalty(dist_state_dict)
     # calculate_prototype_distances(prototypes)
     # print("Finish training")
-    return model, prototypes
+    return model, prototypes, penalty_lambda
 
-# start_training_task_noniid()
-
-
-
-
+# start_training_task_noniid() 
