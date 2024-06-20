@@ -7,7 +7,7 @@ import numpy as np
 
 from glob_inc.server_fl import *
 from model_api.src.ml_api import aggregated_models
-from Mnist1 import calculate_prototype_distance, calculate_penalty
+from Mnist1 import calculate_prototype_distance, calculate_penalty , train_mnist_noniid
 
 LOG_DIR = 'logs'
 LOG_FILE = f"{LOG_DIR}/app-{datetime.today().strftime('%Y-%m-%d')}.log"
@@ -88,6 +88,7 @@ def handle_train_res(this_client_id, msg):
     payload = json.loads(msg.payload.decode())
 
     client_trainres_dict[this_client_id] = payload["weight"]
+    client_trainres_protos[this_client_id] = payload["protos"]
     state = client_dict[this_client_id]["state"]
     if state == "model_recv":
         client_dict[this_client_id]["state"] = "trained"
@@ -145,9 +146,14 @@ def end_round():
     logger.info(f"server end round {n_round}")
     print_log(f"server end round {n_round}")
     round_state = "finished"
+    server_prototypes = train_mnist_noniid
 
-    print_log("##### calculate_prototype_distances #####") # gọi hàm calculate distance ở đây!  #D      
-    calculate_prototype_distance(client_trainres_dict, n_round)
+    print_log("##### calculate_prototype_distances #####") # gọi hàm calculate distance ở đây!  #D  
+    """for client_id in client_trainres_dict.items():
+        print(client_trainres_dict)"""
+    calculate_prototype_distance(client_trainres_protos, n_round)
+    print(client_trainres_protos)
+
 
     if n_round < NUM_ROUND:
         handle_next_round_duration()

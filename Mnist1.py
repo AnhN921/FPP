@@ -30,7 +30,7 @@ k_list = [40] * num_users  # Số lượng mẫu mỗi lớp cho mỗi người 
 classes_list = [np.random.choice(range(10), size=10, replace=False) for _ in range(num_users)]  # Danh sách các lớp mỗi người dùng
 NUM_CLASSES = 10
 PROTOTYPE_DIM = 784
-server_prototypes = {label: np.zeros(PROTOTYPE_DIM) for label in range(NUM_CLASSES)}
+#server_prototypes = {label: np.zeros(PROTOTYPE_DIM) for label in range(NUM_CLASSES)}
 
 def get_mnist():
     # Define data transformations
@@ -88,6 +88,22 @@ def mnist_noniid_lt(train_dataset, num_users, n_list, k_list, classes_list):
         user_data = user_data.astype(int)
         dict_users[i] = user_data
     return dict_users
+"""def mnist_noniid_lt(train_dataset, num_users, n_list, k_list, classes_list):
+    dict_users = {}
+    labels = train_dataset.targets.numpy()  # Thay vì 'train_labels', sử dụng 'targets' để lấy nhãn
+
+    # Phân chia dữ liệu cho từng người dùng
+    for i in range(num_users):
+        user_data = []
+        for class_idx in classes_list[i]:
+            # Lấy chỉ mục của các mẫu thuộc lớp class_idx
+            idxs = np.where(labels == class_idx)[0]
+            # Chọn n_list[i] mẫu từ idxs
+            selected_idxs = np.random.choice(idxs, size=n_list[i], replace=False)
+            user_data.extend(selected_idxs)
+        dict_users[i] = np.array(user_data)
+
+    return dict_users"""
 
 def get_data_loaders(dataset, dict_users):
     user_data_loaders = []
@@ -98,33 +114,6 @@ def get_data_loaders(dataset, dict_users):
         user_data_loaders.append(user_data_loader)
     return user_data_loaders
 
-"""class FashionCNN(nn.Module):
-    def __init__(self):
-        super(FashionCNN, self).__init__()
-        self.layer1 = nn.Sequential(
-            nn.Conv2d(in_channels=1, out_channels=16, kernel_size=5, padding=1),
-            nn.BatchNorm2d(16),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2)
-        )
-        self.layer2 = nn.Sequential(
-            nn.Conv2d(in_channels=16, out_channels=32, kernel_size=5),
-            nn.BatchNorm2d(32),
-            nn.ReLU(),
-            nn.MaxPool2d(2)
-        )
-        self.fc1 = nn.Linear(in_features=32*4*4, out_features=120)
-        self.fc2 = nn.Linear(in_features=120, out_features=84)
-        self.fc3 = nn.Linear(in_features=84, out_features=10)
-    def forward(self, x):
-        out = self.layer1(x)
-        out = self.layer2(out)
-        out = out.view(out.size(0), -1)
-        out = F.relu(self.fc1(out))
-        out = F.relu(self.fc2(out))
-        protos = self.fc3(out)
-        out = F.log_softmax(self.fc3(out), dim=1)
-        return out, protos"""
 
 class Lenet(nn.Module):
     def __init__(self):
@@ -206,19 +195,22 @@ def train_mnist_noniid(epochs, user_data_loaders, test_loader, learning_rate=0.0
 
     return model.state_dict(), protos 
 
-def calculate_prototype_distance(client_trainres_dict, n_round):
+def calculate_prototype_distance(client_trainres_protos, n_round):
     dist_state_dict = OrderedDict()
+    server_prototypes = train_mnist_noniid
     for label in range(NUM_CLASSES):
         server_proto = server_prototypes[label]
-        for client_id in client_trainres_dict:
-            if label in client_trainres_dict[client_id]:
-                client_proto = client_trainres_dict[client_id][label]
+        for client_id, client_dict in client_trainres_protos.items():
+            for label, protos in client_dict.items():
+                client_proto = client_dict[label]
+                print(client_proto)
                 distance = np.linalg.norm(server_proto - client_proto)
-                if label not in dist_state_dict:
-                    dist_state_dict[label] = {}
-                dist_state_dict[label][client_id] = distance
-            else:
-                print(f"Label {label} not found in client {client_id}'s data")
+                dist_state_dict[label][client_id]=distance
+                #if label not in dist_state_dict:
+                    #dist_state_dict[label] = {}
+                #dist_state_dict[label][client_id] = distance
+            #else:
+                #print(f"Label {label} not found in client {client_id}'s data")
     torch.save(dist_state_dict, f'distances_round_{n_round}.pt')
     torch.save(dist_state_dict, "saved_model/distance.pt")
     return dist_state_dict    
