@@ -13,7 +13,7 @@ LOG_DIR = 'logs'
 LOG_FILE = f"{LOG_DIR}/app-{datetime.today().strftime('%Y-%m-%d')}.log"
 
 
-broke_name = "100.95.25.52"
+broke_name = "192.168.1.119"
 n_round = 0
 
 # Create log directory if it doesn't exist
@@ -146,13 +146,16 @@ def end_round():
     logger.info(f"server end round {n_round}")
     print_log(f"server end round {n_round}")
     round_state = "finished"
+
+    # get protorype
     _,_,prototype_loader = get_mnist()
-    #dict_users = mnist_noniid_lt(train_loader.dataset, num_users, n_list, k_list, classes_list)
-    #prototype_loader = get_data_loaders(train_loader.dataset, test_loader.dataset, dict_users, prototype_loader.dataset)
+    print("prototype_loader: ", prototype_loader)
+
     if n_round > 1:
         # Load model and calculate server prototypes from model
-        model = Lenet()
-        model.load_state_dict(torch.load("saved_model/LSTMModel.pt")['model_state_dict'])
+        # model = Lenet()
+        # model.load_state_dict(torch.load("saved_model/LSTMModel.pt")['model_state_dict'])
+        # model.to(device="CUDA")
         server_prototypes = calculate_server_prototypes(model, prototype_loader)
     else:
         # Calculate server prototypes from scratch for the first round

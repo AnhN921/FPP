@@ -175,7 +175,7 @@ def train_mnist_noniid(epochs, user_data_loaders, test_loader, learning_rate=0.0
         test_loss /= len(test_loader.dataset)
         accuracy = 100. * correct / len(test_loader.dataset)
         print(f'Epoch: {epoch}, Test Loss: {test_loss:.4f}, Accuracy: {accuracy:.3f}%')
-
+ 
     torch.save({
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
@@ -192,22 +192,25 @@ def train_mnist_noniid(epochs, user_data_loaders, test_loader, learning_rate=0.0
 
 def calculate_server_prototypes(model, prototype_loader):
     server_prototypes = {}
-    with torch.no_grad():
-        model.eval()
-        for batch_idx, (data, target) in enumerate(prototype_loader):
-            data, target = data.to(device), target.to(device)
-            output, protos = model(data)
-            for j in range(protos.size(0)):
-                label = j 
-                if label not in server_prototypes:
-                    server_prototypes[label] = (protos[j], 1)
-                else:
-                    prototype, count = server_prototypes[label]
-                    server_prototypes[label] = (prototype + protos[j], count + 1)
-        for label in server_prototypes:
-            protos, count = server_prototypes[label]
-            server_prototypes[label] = protos / count
-        server_prototypes = {label: server_prototypes[label].tolist() for label in server_prototypes}
+    # with torch.no_grad():
+    model = Lenet()
+    model.load_state_dict(torch.load("saved_model/LSTMModel.pt")['model_state_dict'])
+    model.to(device)
+    model.train()
+    for batch_idx, (data, target) in enumerate(prototype_loader):
+        data, target = data.to(device), target.to(device)
+        output, protos = model(data)
+        for j in range(protos.size(0)):
+            label = j 
+            if label not in server_prototypes:
+                server_prototypes[label] = (protos[j], 1)
+            else:
+                prototype, count = server_prototypes[label]
+                server_prototypes[label] = (prototype + protos[j], count + 1)
+    for label in server_prototypes:
+        protos, count = server_prototypes[label]
+        server_prototypes[label] = protos / count
+    server_prototypes = {label: server_prototypes[label].tolist() for label in server_prototypes}
     return server_prototypes
             
 """

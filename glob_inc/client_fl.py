@@ -5,7 +5,7 @@ import json
 # from model_api.src.ml_api import start_training_task
 from Mnist1 import start_training_task_noniid
 
-broker_name = "100.95.25.52"
+broker_name = "192.168.1.119"
 
 # global start_line
 start_line = 0
