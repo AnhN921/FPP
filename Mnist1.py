@@ -4,11 +4,8 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 import torch.nn.functional as F
 import torchvision.models as models
-from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
-import time
-import psutil
-import json
+from torch.utils.data import DataLoader, random_split, SubsetRandomSampler
 import random
 import pandas as pd
 from arg_nene import args_parser #???
@@ -29,29 +26,47 @@ n_list = [40] * num_users  # Số lượng mẫu mỗi người dùng
 k_list = [40] * num_users  # Số lượng mẫu mỗi lớp cho mỗi người dùng
 classes_list = [np.random.choice(range(10), size=10, replace=False) for _ in range(num_users)]  # Danh sách các lớp mỗi người dùng
 NUM_CLASSES = 10
-PROTOTYPE_DIM = 784
-#server_prototypes = {label: np.zeros(PROTOTYPE_DIM) for label in range(NUM_CLASSES)}
-
 def get_mnist():
     # Define data transformations
     trans_mnist_train = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
-    ])
+        transforms.Normalize((0.1307,), (0.3081,))])
     trans_mnist_test = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
-    ])
+        transforms.Normalize((0.1307,), (0.3081,))])
     # Load MNIST dataset
     train_dataset = datasets.MNIST('../data', train=True, download=True, transform=trans_mnist_train)
     test_dataset = datasets.MNIST('../data', train=False, download=True, transform=trans_mnist_test)
-    # Create data loaders
+    # Tách dữ liệu train theo tỉ lệ 9:1
+    train_size = int(0.9 * len(train_dataset))
+    prototype_size = len(train_dataset) - train_size
+    train_dataset, prototype_dataset = random_split(train_dataset, [train_size, prototype_size])
+    # Chia 90% dữ liệu cho các client
+    #dict_users = mnist_noniid_lt(train_dataset, num_users, n_list, k_list, classes_list)
+    #user_data_loaders = get_data_loaders(train_size, dict_users, prototype_dataset, dict_users)
     train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
-    #train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True, num_workers=4)
-    return train_loader, test_loader
+    prototype_loader = DataLoader(prototype_dataset, batch_size=64, shuffle=True)
+    
 
-# noniid
+    return train_loader, test_loader, prototype_loader
+
+def get_labels(subset):
+    return [subset.dataset[i][1] for i in subset.indices]
+"""
+def get_data_loaders(train_dataset, test_dataset, prototype_dataset, dict_users):
+    # Create train loader for each client
+    user_data_loaders = []
+    for user in range(len(dict_users)):
+        user_idx = dict_users[user]
+        user_sampler = SubsetRandomSampler(user_idx)
+        user_data_loader = DataLoader(train_dataset, batch_size=64, sampler=user_sampler)
+        user_data_loaders.append(user_data_loader)
+
+    # Create prototype loader for server
+    prototype_loader = DataLoader(prototype_dataset, batch_size=64, shuffle=True)
+
+    return user_data_loaders, prototype_loader"""
 def mnist_noniid_lt(train_dataset, num_users, n_list, k_list, classes_list):
     """
     Sample non-I.I.D client data from MNIST dataset
@@ -59,67 +74,50 @@ def mnist_noniid_lt(train_dataset, num_users, n_list, k_list, classes_list):
     :param num_users:
     :return:
     """
-    # 60,000 training imgs -->  200 imgs/shard X 300 shards
     num_shards, num_imgs = 10, 1000
     idx_shard = [i for i in range(num_shards)]
     dict_users = {}
-    idxs = np.arange(num_shards*num_imgs)
-    labels = train_dataset.train_labels.numpy()
+    labels = np.array(train_dataset.dataset.targets)[train_dataset.indices]
+    num_labels = len(labels)
+    idxs = np.arange(num_labels)  # Chỉ lấy số phần tử tương ứng từ idxs
     # sort labels
     idxs_labels = np.vstack((idxs, labels))
     idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
     idxs = idxs_labels[0, :]
     label_begin = {}
-    cnt=0
-    for i in idxs_labels[1,:]:
+    cnt = 0
+    for i in idxs_labels[1, :]:
         if i not in label_begin:
-                label_begin[i] = cnt
-        cnt+=1
+            label_begin[i] = cnt
+        cnt += 1
 
     for i in range(num_users):
         k = 40
         classes = classes_list[i]
-        # print("local test classes:", classes)
         user_data = np.array([])
         for each_class in classes:
-            begin = i*40 + label_begin[each_class.item()]
-            user_data = np.concatenate((user_data, idxs[begin : begin+k]),axis=0)
-        # Ép kiểu user_data thành số nguyên
+            begin = i * 40 + label_begin[each_class.item()]
+            user_data = np.concatenate((user_data, idxs[begin: begin + k]), axis=0)
         user_data = user_data.astype(int)
         dict_users[i] = user_data
     return dict_users
-"""def mnist_noniid_lt(train_dataset, num_users, n_list, k_list, classes_list):
-    dict_users = {}
-    labels = train_dataset.targets.numpy()  # Thay vì 'train_labels', sử dụng 'targets' để lấy nhãn
 
-    # Phân chia dữ liệu cho từng người dùng
-    for i in range(num_users):
-        user_data = []
-        for class_idx in classes_list[i]:
-            # Lấy chỉ mục của các mẫu thuộc lớp class_idx
-            idxs = np.where(labels == class_idx)[0]
-            # Chọn n_list[i] mẫu từ idxs
-            selected_idxs = np.random.choice(idxs, size=n_list[i], replace=False)
-            user_data.extend(selected_idxs)
-        dict_users[i] = np.array(user_data)
-
-    return dict_users"""
-
-def get_data_loaders(dataset, dict_users):
+def get_data_loaders(train_dataset,test_dataset, dict_users):
     user_data_loaders = []
-    for user in range(len(dict_users)):
-        user_idx = dict_users[user]
-        user_sampler = torch.utils.data.SubsetRandomSampler(user_idx)
-        user_data_loader = DataLoader(dataset, batch_size=64, sampler=user_sampler)
+    for user_id, indices in dict_users.items():
+        user_sampler = SubsetRandomSampler(indices)
+        user_data_loader = DataLoader(train_dataset, batch_size=64, sampler=user_sampler)
         user_data_loaders.append(user_data_loader)
-    return user_data_loaders
 
+    #prototype_loader = DataLoader(prototype_dataset, batch_size=64, shuffle=True)
+
+    return user_data_loaders #, prototype_loader
 
 class Lenet(nn.Module):
     def __init__(self):
         super(Lenet, self).__init__()
         self.n_cls = 10
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=64, kernel_size=5)
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=64, kernel_size=5, stride=1, padding=0)
         self.conv2 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=5)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
         self.fc1 = nn.Linear(64 * 4 * 4, 384)
@@ -132,8 +130,9 @@ class Lenet(nn.Module):
         x1 = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x1))
         protos = self.fc3(x)
-        x = F.log_softmax(self.fc3(x), dim=1)
-        return protos, x
+        logits = F.log_softmax(protos, dim=1)
+        #x = F.log_softmax(self.fc3(x), dim=1)
+        return protos, logits
 
 def tensor_to_list(tensor):
     return tensor.detach().cpu().tolist()
@@ -183,22 +182,50 @@ def train_mnist_noniid(epochs, user_data_loaders, test_loader, learning_rate=0.0
         'loss': test_loss,
         'accuracy': accuracy,
         'prototypes': prototypes
-    }, 'mymodel.pt')
-
-    # Normalize prototypes
+    }, "saved_model/LSTMModel.pt")
+    # Normalize prototypes liệu nen lưu protos thành client_trainres_protos
     for label in prototypes:
         protos, count = prototypes[label]
         prototypes[label] = protos / count
-
-    # Convert prototypes to lists
     protos = {label: prototypes[label].tolist() for label in prototypes}
-
     return model.state_dict(), protos 
 
-def calculate_prototype_distance(client_trainres_protos, n_round):
+def calculate_server_prototypes(model, prototype_loader):
+    server_prototypes = {}
+    with torch.no_grad():
+        model.eval()
+        for batch_idx, (data, target) in enumerate(prototype_loader):
+            data, target = data.to(device), target.to(device)
+            output, protos = model(data)
+            for j in range(protos.size(0)):
+                label = j 
+                if label not in server_prototypes:
+                    server_prototypes[label] = (protos[j], 1)
+                else:
+                    prototype, count = server_prototypes[label]
+                    server_prototypes[label] = (prototype + protos[j], count + 1)
+        for label in server_prototypes:
+            protos, count = server_prototypes[label]
+            server_prototypes[label] = protos / count
+        server_prototypes = {label: server_prototypes[label].tolist() for label in server_prototypes}
+    return server_prototypes
+            
+
+def calculate_prototype_distance(client_trainres_protos, n_round, server_prototypes):
     dist_state_dict = OrderedDict()
-    server_prototypes = train_mnist_noniid
-    for label in range(NUM_CLASSES):
+    for client_id, client_dict in client_trainres_protos.items():
+        dist_state_dict[client_id] = {}
+        for label, client_proto in client_dict.items():
+            server_proto = server_prototypes[label]
+            distance = np.linalg.norm(np.array(server_proto) - np.array(client_proto))
+            dist_state_dict[client_id][label] = distance
+    torch.save(dist_state_dict, f'distances_round_{n_round}.pt')
+    torch.save(dist_state_dict, "saved_model/distance.pt")
+    return dist_state_dict
+"""
+def calculate_prototype_distance(client_trainres_protos, n_round, server_prototypes ):
+    dist_state_dict = OrderedDict()
+    for label in range(10):
         server_proto = server_prototypes[label]
         for client_id, client_dict in client_trainres_protos.items():
             for label, protos in client_dict.items():
@@ -213,7 +240,7 @@ def calculate_prototype_distance(client_trainres_protos, n_round):
                 #print(f"Label {label} not found in client {client_id}'s data")
     torch.save(dist_state_dict, f'distances_round_{n_round}.pt')
     torch.save(dist_state_dict, "saved_model/distance.pt")
-    return dist_state_dict    
+    return dist_state_dict    """
 
 """def calculate_penalty(dist_state_dict):
     penalty_lambda = {}
@@ -243,14 +270,14 @@ def calculate_penalty(dist_state_dict):
 def start_training_task_noniid():
     # args = args_parser()
     num_users = 10  # Số lượng người dùng
-    train_loader, test_loader = get_mnist()
-    dict_users = mnist_noniid_lt(test_loader.dataset, num_users, n_list, k_list, classes_list)
-    user_data_loaders = get_data_loaders(train_loader.dataset, dict_users)
+    train_loader, test_loader, prototype_loader = get_mnist()
+    print (prototype_loader)
+    dict_users = mnist_noniid_lt(train_loader.dataset, num_users, n_list, k_list, classes_list)
+    user_data_loaders = get_data_loaders(train_loader.dataset, test_loader.dataset, dict_users)
     model, prototypes = train_mnist_noniid(epochs=epochs, user_data_loaders=user_data_loaders, test_loader=test_loader, learning_rate=0.0001)
     #dist_state_dict = calculate_prototype_distance(prototypes)
     #penalty_lambda = calculate_penalty(dist_state_dict)
     # calculate_prototype_distances(prototypes)
     # print("Finish training")
-    return model, prototypes 
-
-# start_training_task_noniid() 
+    return model, prototypes
+#start_training_task_noniid()

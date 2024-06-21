@@ -358,6 +358,25 @@ def start_training_task(start_line, start_benign):
     # logging.info("\n Time end: %d\n", time_end)
     return model.state_dict()
 
+def aggregated_models_avg(client_trainres_dict, n_round):
+    # Khởi tạo một OrderedDict để lưu trữ tổng của các tham số của mỗi layer
+    sum_state_dict = OrderedDict()
+
+    # Lặp qua các giá trị của dict chính và cộng giá trị của từng tham số vào sum_state_dict
+    for client_id, state_dict in client_trainres_dict.items():
+        for key, value in state_dict.items():
+            if key in sum_state_dict:
+                sum_state_dict[key] = sum_state_dict[key] + torch.tensor(value, dtype=torch.float32)
+            else:
+                sum_state_dict[key] = torch.tensor(value, dtype=torch.float32)
+
+    # Tính trung bình của các tham số
+    num_models = len(client_trainres_dict)
+    avg_state_dict = OrderedDict((key, value / num_models) for key, value in sum_state_dict.items())
+    torch.save(avg_state_dict, f'model_round_{n_round}.pt')
+    torch.save(avg_state_dict, "saved_model/LSTMModel.pt")
+    # delete parameter in client_trainres to start new round
+    client_trainres_dict.clear()
 
 def aggregated_models(client_trainres_dict, n_round, penalty_lambda):
     # Khởi tạo một OrderedDict để lưu trữ tổng của các tham số của mỗi layer

@@ -4,11 +4,11 @@ import json
 import paho.mqtt.client as client
 import logging
 import numpy as np
+import torch 
 
 from glob_inc.server_fl import *
-from model_api.src.ml_api import aggregated_models
-from Mnist1 import calculate_prototype_distance, calculate_penalty , train_mnist_noniid
-
+from model_api.src.ml_api import aggregated_models, aggregated_models_avg
+from Mnist1 import calculate_prototype_distance, calculate_penalty , train_mnist_noniid, calculate_server_prototypes, Lenet, get_data_loaders, get_mnist,mnist_noniid_lt
 LOG_DIR = 'logs'
 LOG_FILE = f"{LOG_DIR}/app-{datetime.today().strftime('%Y-%m-%d')}.log"
 
@@ -146,14 +146,27 @@ def end_round():
     logger.info(f"server end round {n_round}")
     print_log(f"server end round {n_round}")
     round_state = "finished"
-    server_prototypes = train_mnist_noniid
+    prototype_loader = get_mnist()
+    #dict_users = mnist_noniid_lt(train_loader.dataset, num_users, n_list, k_list, classes_list)
+    #prototype_loader = get_data_loaders(train_loader.dataset, test_loader.dataset, dict_users, prototype_loader.dataset)
+    if n_round > 1:
+        # Load model and calculate server prototypes from model
+        model = Lenet()
+        model.load_state_dict(torch.load("saved_model/LSTMModel.pt")['model_state_dict'])
+        server_prototypes = calculate_server_prototypes(model, prototype_loader)
+    else:
+        # Calculate server prototypes from scratch for the first round
+        model = Lenet()  #proto round đầu được tính từ hàm tbinh avg do para round đầu gửi lên
+        model.load_state_dict(torch.load('model_round_1.pt'))#['model_state_dict'])
+        server_prototypes = calculate_server_prototypes(model, prototype_loader)
+ 
 
     print_log("##### calculate_prototype_distances #####") # gọi hàm calculate distance ở đây!  #D  
-    """for client_id in client_trainres_dict.items():
-        print(client_trainres_dict)"""
-    calculate_prototype_distance(client_trainres_protos, n_round)
-    print(client_trainres_protos)
-
+    calculate_prototype_distance(client_trainres_protos, n_round, server_prototypes)
+    if n_round == 1:
+        aggregated_models_avg(client_trainres_dict, n_round)
+    else: 
+        do_aggregate() 
 
     if n_round < NUM_ROUND:
         handle_next_round_duration()
