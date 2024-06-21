@@ -210,7 +210,7 @@ def calculate_server_prototypes(model, prototype_loader):
         server_prototypes = {label: server_prototypes[label].tolist() for label in server_prototypes}
     return server_prototypes
             
-
+"""
 def calculate_prototype_distance(client_trainres_protos, n_round, server_prototypes):
     dist_state_dict = OrderedDict()
     for client_id, client_dict in client_trainres_protos.items():
@@ -221,8 +221,8 @@ def calculate_prototype_distance(client_trainres_protos, n_round, server_prototy
             dist_state_dict[client_id][label] = distance
     torch.save(dist_state_dict, f'distances_round_{n_round}.pt')
     torch.save(dist_state_dict, "saved_model/distance.pt")
-    return dist_state_dict
-"""
+    return dist_state_dict """
+
 def calculate_prototype_distance(client_trainres_protos, n_round, server_prototypes ):
     dist_state_dict = OrderedDict()
     for label in range(10):
@@ -240,7 +240,7 @@ def calculate_prototype_distance(client_trainres_protos, n_round, server_prototy
                 #print(f"Label {label} not found in client {client_id}'s data")
     torch.save(dist_state_dict, f'distances_round_{n_round}.pt')
     torch.save(dist_state_dict, "saved_model/distance.pt")
-    return dist_state_dict    """
+    return dist_state_dict  
 
 """def calculate_penalty(dist_state_dict):
     penalty_lambda = {}

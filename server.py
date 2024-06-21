@@ -146,7 +146,7 @@ def end_round():
     logger.info(f"server end round {n_round}")
     print_log(f"server end round {n_round}")
     round_state = "finished"
-    prototype_loader = get_mnist()
+    _,_,prototype_loader = get_mnist()
     #dict_users = mnist_noniid_lt(train_loader.dataset, num_users, n_list, k_list, classes_list)
     #prototype_loader = get_data_loaders(train_loader.dataset, test_loader.dataset, dict_users, prototype_loader.dataset)
     if n_round > 1:
