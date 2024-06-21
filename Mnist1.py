@@ -226,24 +226,22 @@ def calculate_prototype_distance(client_trainres_protos, n_round, server_prototy
     torch.save(dist_state_dict, "saved_model/distance.pt")
     return dist_state_dict """
 
-def calculate_prototype_distance(client_trainres_protos, n_round, server_prototypes ):
+def calculate_prototype_distance(client_trainres_protos, n_round, server_prototypes):
     dist_state_dict = OrderedDict()
     for label in range(10):
-        server_proto = server_prototypes[label]
+        server_proto = np.array(server_prototypes[label])
         for client_id, client_dict in client_trainres_protos.items():
-            for label, protos in client_dict.items():
-                client_proto = client_dict[label]
-                print(client_proto)
-                distance = np.linalg.norm(server_proto - client_proto)
-                dist_state_dict[label][client_id]=distance
-                #if label not in dist_state_dict:
-                    #dist_state_dict[label] = {}
-                #dist_state_dict[label][client_id] = distance
-            #else:
-                #print(f"Label {label} not found in client {client_id}'s data")
+            if client_proto not in client_dict:
+                print('kh co')
+                continue
+            client_proto = np.array(client_dict[label]) 
+            distance = np.linalg.norm(server_proto - client_proto)
+            if label not in dist_state_dict:
+                dist_state_dict[label] = {} 
+            dist_state_dict[label][client_id] = distance
     torch.save(dist_state_dict, f'distances_round_{n_round}.pt')
     torch.save(dist_state_dict, "saved_model/distance.pt")
-    return dist_state_dict  
+    return dist_state_dict
 
 """def calculate_penalty(dist_state_dict):
     penalty_lambda = {}

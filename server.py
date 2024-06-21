@@ -13,7 +13,7 @@ LOG_DIR = 'logs'
 LOG_FILE = f"{LOG_DIR}/app-{datetime.today().strftime('%Y-%m-%d')}.log"
 
 
-broke_name = "192.168.1.119"
+broke_name = "100.95.25.52"
 n_round = 0
 
 # Create log directory if it doesn't exist
