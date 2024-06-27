@@ -148,7 +148,7 @@ def end_round():
     round_state = "finished"
 
     # get protorype
-    _,_,prototype_loader = get_mnist()
+    _,_,prototype_loader, _ = get_mnist()
     print("prototype_loader: ", prototype_loader)
 
     if n_round > 1:

@@ -53,7 +53,7 @@ def do_train(client):
     payload = {
         "task": "TRAIN",
         "weight": result_np,
-        "protos": protos 
+        "protos": protos
     }
     client.publish(topic="dynamicFL/res/" + client_id, payload=json.dumps(payload))
     print_log(f"end training")
