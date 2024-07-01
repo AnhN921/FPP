@@ -165,7 +165,7 @@ def train_mnist_noniid(epochs, user_data_loaders, test_loader, learning_rate=0.0
         'loss': test_loss,
         'accuracy': accuracy,
         'prototypes': prototypes
-    }, "saved_model/LSTMModel.pt")
+    }, "mymodel.pt")
     # Normalize prototypes 
     for label in prototypes:
         protos, count = prototypes[label]
@@ -176,7 +176,7 @@ def train_mnist_noniid(epochs, user_data_loaders, test_loader, learning_rate=0.0
 def calculate_server_prototypes(model, prototype_loader):
     server_prototypes = {}
     model = Lenet()
-    checkpoint = torch.load('saved_model/LSTMModel.pt')
+    checkpoint = torch.load('mymodel.pt')
     model.load_state_dict(checkpoint['model_state_dict'])
     #model.load_state_dict(torch.load('saved_model/LSTMModel.pt'))
     #model.load_state_dict(torch.load("saved_model/LSTMModel.pt")['model_state_dict'])
@@ -201,54 +201,6 @@ def calculate_server_prototypes(model, prototype_loader):
     
     return server_prototypes
 
-"""
-def calculate_prototype_distance(client_trainres_protos, n_round, server_prototypes):
-    dist_state_dict = OrderedDict()
-    #print("client trainres proto:", client_trainres_protos)
-    #print("server proto:", server_prototypes)
-
-    for label in range(10):  # Duyệt qua các nhãn từ 0 đến 9
-        server_proto = np.array(server_prototypes[label])
-        for client_id, client_dict in client_trainres_protos.items():
-            for label, protos in client_dict.items(): 
-                print("{0}: ({1} : {2})".format(client_id, label,protos))
-                client_proto = np.array(client_dict[label])
-                distance = np.linalg.norm(server_proto - client_proto)
-                if label not in dist_state_dict:
-                    dist_state_dict[label] = {}
-                dist_state_dict[label][client_id] = distance
-                
-            #print(f"Client {client_id} does not have label {label}")
-            #print(f"Available labels for client {client_id}: {list(client_dict.keys())}")
-    torch.save(dist_state_dict, f'distances_round_{n_round}.pt')
-    torch.save(dist_state_dict, "saved_model/distance.pt")
-    return dist_state_dict """
-"""
-def calculate_prototype_distance(client_trainres_protos, n_round, server_prototypes):
-    #dist_state_dict = OrderedDict()
-    server_proto = []
-    clients_proto = {}
-    distance = OrderedDict()
-    for label, proto_server in server_prototypes.items():
-            #print("label_server",label)
-            server_proto.append(np.array(server_prototypes[label]))
-    for client_id, client_protodict in client_trainres_protos.items():
-        protos = []
-        for label, proto in client_protodict.items():
-            #print("label client:", label)
-            protos.append(np.array(proto))
-            clients_proto[client_id] = np.array(protos)
-            protos = []
-                    
-    print("\n Proto tren Server: ", server_proto)
-    print("\n Proto tren Client: ", clients_proto)
-    for client_id, protos in clients_proto.items():
-        for label in range(len(server_proto)):
-            #server_proto = np.array(server_prototypes[label])
-            #clients_proto = np.array(clients_proto[label])
-            distance[client_id] = np.linalg.norm(server_proto - clients_proto[client_id])
-
-    return distance"""
 def calculate_prototype_distance(client_trainres_protos, n_round, server_prototypes):
     server_proto = {}
     clients_proto = {}

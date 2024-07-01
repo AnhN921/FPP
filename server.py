@@ -80,7 +80,7 @@ def handle_ping_res(this_client_id, msg):
             count_eva_conn_ok = sum(1 for client_info in client_dict.values() if client_info["state"] == "eva_conn_ok")
             if count_eva_conn_ok == NUM_DEVICE:
                 print_log("publish to " + "dynamicFL/model/all_client")
-                send_model("saved_model/LSTMModel.pt", server, this_client_id)
+                send_model("mymodel.pt", server, this_client_id)
 
 
 def handle_train_res(this_client_id, msg):
@@ -159,7 +159,7 @@ def end_round():
     else:
         # Calculate server prototypes from scratch for the first round
         model = Lenet()  #proto round đầu được tính từ hàm tbinh avg do para round đầu gửi lên
-        checkpoint = torch.load('saved_model/LSTMModel.pt')
+        checkpoint = torch.load('mymodel.pt')
         model.load_state_dict(checkpoint['model_state_dict'])
         #model.load_state_dict(torch.load('model_round_1.pt'))#['model_state_dict'])
         server_prototypes = calculate_server_prototypes(model, prototype_loader)
