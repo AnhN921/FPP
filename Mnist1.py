@@ -55,13 +55,7 @@ def get_labels(subset):
     return [subset.dataset[i][1] for i in subset.indices]
 
 def mnist_noniid_lt(train_dataset, NUM_DEVICE, n_list=None):
-    """
-    Sample non-I.I.D client data from MNIST dataset
-    :param train_dataset: MNIST training dataset
-    :param NUM_DEVICE: Number of devices (clients)
-    :param n_list: List of number of samples for each client (optional)
-    :return: Dictionary containing indices of samples for each client
-    """
+
     dict_users = {i: np.array([], dtype='int64') for i in range(NUM_DEVICE)}
     labels = np.array(train_dataset.dataset.targets)[train_dataset.indices]
     idxs = np.arange(len(labels))
@@ -181,102 +175,124 @@ def train_mnist_noniid(epochs, user_data_loaders, test_loader, learning_rate=0.0
 
 def calculate_server_prototypes(model, prototype_loader):
     server_prototypes = {}
-    # with torch.no_grad():
     model = Lenet()
     model.load_state_dict(torch.load("saved_model/LSTMModel.pt")['model_state_dict'])
     model.to(device)
-    model.train()
-    for batch_idx, (data, target) in enumerate(prototype_loader):
-        data, target = data.to(device), target.to(device)
-        output, protos = model(data)
-        for j in range(protos.size(0)):
-            label = j 
-            if label not in server_prototypes:
-                server_prototypes[label] = (protos[j], 1)
-            else:
-                prototype, count = server_prototypes[label]
-                server_prototypes[label] = (prototype + protos[j], count + 1)
+    model.eval()  
+    with torch.no_grad():
+        for batch_idx, (data, target) in enumerate(prototype_loader):
+            data, target = data.to(device), target.to(device)
+            output, protos = model(data)
+            for j in range(protos.size(0)):
+                label = target[j].item()  
+                if label not in server_prototypes:
+                    server_prototypes[label] = (protos[j], 1)
+                else:
+                    prototype, count = server_prototypes[label]
+                    server_prototypes[label] = (prototype + protos[j], count + 1)
     for label in server_prototypes:
         protos, count = server_prototypes[label]
         server_prototypes[label] = protos / count
     server_prototypes = {label: server_prototypes[label].tolist() for label in server_prototypes}
     torch.save(server_prototypes, 'server_prototypes.pt')
+    
     return server_prototypes
+
 """
 def calculate_prototype_distance(client_trainres_protos, n_round, server_prototypes):
     dist_state_dict = OrderedDict()
-    for client_id, client_dict in client_trainres_protos.items():
-        dist_state_dict[client_id] = {}
-        for label, client_proto in client_dict.items():
-            server_proto = server_prototypes[label]
-            distance = np.linalg.norm(np.array(server_proto) - np.array(client_proto))
-            dist_state_dict[client_id][label] = distance
+    #print("client trainres proto:", client_trainres_protos)
+    #print("server proto:", server_prototypes)
+
+    for label in range(10):  # Duyệt qua các nhãn từ 0 đến 9
+        server_proto = np.array(server_prototypes[label])
+        for client_id, client_dict in client_trainres_protos.items():
+            for label, protos in client_dict.items(): 
+                print("{0}: ({1} : {2})".format(client_id, label,protos))
+                client_proto = np.array(client_dict[label])
+                distance = np.linalg.norm(server_proto - client_proto)
+                if label not in dist_state_dict:
+                    dist_state_dict[label] = {}
+                dist_state_dict[label][client_id] = distance
+                
+            #print(f"Client {client_id} does not have label {label}")
+            #print(f"Available labels for client {client_id}: {list(client_dict.keys())}")
     torch.save(dist_state_dict, f'distances_round_{n_round}.pt')
     torch.save(dist_state_dict, "saved_model/distance.pt")
     return dist_state_dict """
-"""def calculate_prototype_distance(client_trainres_protos, n_round, server_prototypes):
-    dist_state_dict = OrderedDict()
-    for label in range(10):
-        server_proto = np.array(server_prototypes[label])
-        for client_id, client_dict in client_trainres_protos.items():
-            client_proto = np.array(client_dict[label])
-            distance = np.linalg.norm(server_proto - client_proto)
-            if label not in dist_state_dict:
-                dist_state_dict[label] = {}
-            dist_state_dict[label][client_id] = distance
-    torch.save(dist_state_dict, f'distances_round_{n_round}.pt')
-    torch.save(dist_state_dict, "saved_model/distance.pt")
-    return dist_state_dict"""
-
+"""
 def calculate_prototype_distance(client_trainres_protos, n_round, server_prototypes):
+    #dist_state_dict = OrderedDict()
+    server_proto = []
+    clients_proto = {}
+    distance = OrderedDict()
+    for label, proto_server in server_prototypes.items():
+            #print("label_server",label)
+            server_proto.append(np.array(server_prototypes[label]))
+    for client_id, client_protodict in client_trainres_protos.items():
+        protos = []
+        for label, proto in client_protodict.items():
+            #print("label client:", label)
+            protos.append(np.array(proto))
+            clients_proto[client_id] = np.array(protos)
+            protos = []
+                    
+    print("\n Proto tren Server: ", server_proto)
+    print("\n Proto tren Client: ", clients_proto)
+    for client_id, protos in clients_proto.items():
+        for label in range(len(server_proto)):
+            #server_proto = np.array(server_prototypes[label])
+            #clients_proto = np.array(clients_proto[label])
+            distance[client_id] = np.linalg.norm(server_proto - clients_proto[client_id])
+
+    return distance"""
+def calculate_prototype_distance(client_trainres_protos, n_round, server_prototypes):
+    server_proto = {}
+    clients_proto = {}
     dist_state_dict = OrderedDict()
-    for label in range(10):  # Duyệt qua các nhãn từ 0 đến 9
-        if label in server_prototypes:
-            server_proto = np.array(server_prototypes[label])
-            for client_id, client_dict in client_trainres_protos.items():
-                if label in client_dict:  # Kiểm tra nếu nhãn tồn tại trong client_dict
-                    client_proto = np.array(client_dict[label])
-                    distance = np.linalg.norm(server_proto - client_proto)
-                    if label not in dist_state_dict:
-                        dist_state_dict[label] = {}
-                    dist_state_dict[label][client_id] = distance
-                else:
-                    print(f"Client {client_id} does not have label {label}")
-                    print(f"Available labels for client {client_id}: {list(client_dict.keys())}")
-        else:
-            print(f"Server does not have prototype for label {label}")
-    torch.save(dist_state_dict, f'distances_round_{n_round}.pt')
-    torch.save(dist_state_dict, "saved_model/distance.pt")
+    for label, proto_server in server_prototypes.items():
+        server_proto[label] = np.array(proto_server)
+        #server_proto.append(np.array(server_prototypes[label]))
+    for client_id, client_protodict in client_trainres_protos.items():
+        protos = {}
+        for label, proto in client_protodict.items():
+            #protos.append(np.array(proto))
+            protos[label] = np.array(proto)
+        clients_proto[client_id] = protos
+    print("\n Proto tren Server: ", server_proto)
+    print("\n Proto tren Client: ", clients_proto)
+    for client_id, protos in clients_proto.items():
+        client_distances = {}
+        for label in server_proto.keys():
+            if label in protos:
+                distance = np.linalg.norm(server_proto[label] - protos[label])
+                client_distances[label] = distance
+                print(f"Client: {client_id}, Label: {label}, Server Proto Shape: {server_proto[label].shape}, Client Proto Shape: {protos[label].shape}, Distance: {distance}")
+            else:
+                client_distances[label] = None  # Nếu client không có prototype cho nhãn này
+        dist_state_dict[client_id] = client_distances 
+        """
+    for client_id, protos in clients_proto.items():
+        client_distances = {}
+        for label in range(len(server_proto)):
+            if label in protos:
+                client_distances[label] = np.linalg.norm(server_proto[label] - protos[label])
+            else:
+                client_distances[label] = None 
+        dist_state_dict[client_id] = client_distances """
     return dist_state_dict
 
 def calculate_penalty(dist_state_dict):
     penalty_lambda = {}
-    for label in dist_state_dict:
-        distances = [dist for _, dist in dist_state_dict[label]]
-        penalty = sum([dist / (dist + 1e-8) for dist in distances])
-        for client_id, dist in dist_state_dict[label]:
-            if client_id not in penalty_lambda:
-                penalty_lambda[client_id] = 0
-            penalty_lambda[client_id] += penalty / len(distances)
-    #torch.save(penalty_lambda, 'penalty_lambda.pt')
+    for client_id, distances_dict in dist_state_dict.items():
+        client_penalty = {}
+        for label, distance in distances_dict.items():
+            if distance is not None and distance != 0:
+                client_penalty[label] = 1 / distance
+            else:
+                client_penalty[label] = 0  
+        penalty_lambda[client_id] = client_penalty
     return penalty_lambda
-
-"""
-def calculate_penalty(dist_state_dict):
-    penalty_lambda = {}
-    for label in dist_state_dict:
-        distances = list(dist_state_dict[label].values())
-        penalty = sum([1 / d for d in distances]) if len(distances) > 0 else 0.0
-        # Thêm các khóa tương ứng với các tham số trong mô hình
-        penalty_lambda[label + '.conv1.weight'] = penalty
-        penalty_lambda[label + '.conv1.bias'] = penalty
-        penalty_lambda[label + '.conv2.weight'] = penalty
-        penalty_lambda[label + '.conv2.bias'] = penalty
-        penalty_lambda[label + '.fc1.weight'] = penalty
-        penalty_lambda[label + '.fc1.bias'] = penalty
-        penalty_lambda[label + '.fc2.weight'] = penalty
-        penalty_lambda[label + '.fc2.bias'] = penalty
-    return penalty_lambda"""
 
 """
 def start_training_task_noniid():
@@ -291,10 +307,10 @@ def start_training_task_noniid():
     #penalty_lambda = calculate_penalty(dist_state_dict)
     # print("Finish training")
     return model, prototypes"""
-#start_training_task_noniid()
 def start_training_task_noniid():
     train_loader, test_loader, prototype_loader, train_dataset = get_mnist()
     dict_users = mnist_noniid_lt(train_dataset, NUM_DEVICE)
     user_data_loaders = get_data_loaders(train_dataset, dict_users)
     model, prototypes = train_mnist_noniid(epochs=epochs, user_data_loaders=user_data_loaders, test_loader=test_loader, learning_rate=0.0001)
     return model, prototypes
+#start_training_task_noniid()

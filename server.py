@@ -66,7 +66,6 @@ def handle_join(client, userdata, msg):
     }
     server.subscribe(topic="dynamicFL/res/" + this_client_id)
 
-
 def handle_ping_res(this_client_id, msg):
     print(msg.topic + " " + str(msg.payload.decode()))
     ping_res = json.loads(msg.payload)

@@ -377,7 +377,7 @@ def aggregated_models_avg(client_trainres_dict, n_round):
     torch.save(avg_state_dict, "saved_model/LSTMModel.pt")
     # delete parameter in client_trainres to start new round
     client_trainres_dict.clear()
-
+"""
 def aggregated_models(client_trainres_dict, n_round, penalty_lambda):
     # Khởi tạo một OrderedDict để lưu trữ tổng của các tham số của mỗi layer
     sum_state_dict = OrderedDict()
@@ -402,7 +402,34 @@ def aggregated_models(client_trainres_dict, n_round, penalty_lambda):
     torch.save(avg_state_dict, f'model_round_{n_round}.pt')
     torch.save(avg_state_dict, "saved_model/LSTMModel.pt")
     # delete parameter in client_trainres to start new round
+    client_trainres_dict.clear() """
+def aggregated_models(client_trainres_dict, n_round, penalty_lambda):
+    # Khởi tạo một OrderedDict để lưu trữ tổng của các tham số của mỗi layer
+    sum_state_dict = OrderedDict()
+    weight_sum = 0
+    for client_id, state_dict in client_trainres_dict.items():
+        int_client_id = int(client_id.split('_')[1])
+        client_penalty = penalty_lambda.get(int_client_id, {})
+        print(f"Client: {client_id}, Penalty: {client_penalty}")
+        for key, value in state_dict.items():
+            if not isinstance(value, torch.Tensor):
+                value = torch.tensor(value, dtype=torch.float32)
+            full_key = key.split('.')[-1]
+            try:
+                label = int(full_key)
+            except ValueError:
+                continue
+            weight = client_penalty.get(label, 1)
+            if key in sum_state_dict:
+                sum_state_dict[key] += value * weight
+            else:
+                sum_state_dict[key] = value * weight
+        weights_sum += sum(client_penalty.values())
+    if weights_sum == 0:
+        raise ValueError("Sum of weights is zero. Cannot normalize by zero.")
+    avg_state_dict = OrderedDict((key, value / weights_sum) for key, value in sum_state_dict.items())
+    torch.save(avg_state_dict, f'model_round_{n_round}.pt')
+    torch.save(avg_state_dict, "saved_model/LSTMModel.pt")
     client_trainres_dict.clear()
-
 
 
