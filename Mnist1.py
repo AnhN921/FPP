@@ -176,7 +176,10 @@ def train_mnist_noniid(epochs, user_data_loaders, test_loader, learning_rate=0.0
 def calculate_server_prototypes(model, prototype_loader):
     server_prototypes = {}
     model = Lenet()
-    model.load_state_dict(torch.load("saved_model/LSTMModel.pt")['model_state_dict'])
+    checkpoint = torch.load('saved_model/LSTMModel.pt')
+    model.load_state_dict(checkpoint['model_state_dict'])
+    #model.load_state_dict(torch.load('saved_model/LSTMModel.pt'))
+    #model.load_state_dict(torch.load("saved_model/LSTMModel.pt")['model_state_dict'])
     model.to(device)
     model.eval()  
     with torch.no_grad():

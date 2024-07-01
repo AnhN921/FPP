@@ -159,7 +159,9 @@ def end_round():
     else:
         # Calculate server prototypes from scratch for the first round
         model = Lenet()  #proto round đầu được tính từ hàm tbinh avg do para round đầu gửi lên
-        model.load_state_dict(torch.load('model_round_1.pt'))#['model_state_dict'])
+        checkpoint = torch.load('saved_model/LSTMModel.pt')
+        model.load_state_dict(checkpoint['model_state_dict'])
+        #model.load_state_dict(torch.load('model_round_1.pt'))#['model_state_dict'])
         server_prototypes = calculate_server_prototypes(model, prototype_loader)
  
 
