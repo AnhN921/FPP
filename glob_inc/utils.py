@@ -3,6 +3,23 @@ from .color import color
 import ping3
 from datetime import datetime
 
+import yaml
+import argparse
+
+# parser = argparse.ArgumentParser(description='Test Algorithms.')
+# parser.add_argument('--yamlfile', default=None, type=str, help='Configuration file.')
+
+# args = parser.parse_args()
+path = "Config_FPP.yaml"
+with open(path, "r") as stream:
+        config = yaml.load(stream, Loader=yaml.Loader)
+
+    # parse the default setting
+config = config
+server_config = config['Server']
+print(server_config)
+client_config = config['Client']
+
 
 def find_color(color_):
     if color_ == "red":
