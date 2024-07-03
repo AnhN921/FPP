@@ -17,11 +17,12 @@ from sklearn.manifold import TSNE
 from tqdm import tqdm
 import seaborn as sns 
 from collections import OrderedDict
+from glob_inc.utils import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 learning_rate = 0.0001
 epochs = 1
-NUM_DEVICE = 2
+NUM_DEVICE = server_config["num_round"]
 n_list = [40] * NUM_DEVICE    # Số lượng mẫu mỗi người dùng
 k_list = [40] * NUM_DEVICE  # Số lượng mẫu mỗi lớp cho mỗi người dùng
 classes_list = [np.random.choice(range(10), size=10, replace=False) for _ in range(NUM_DEVICE)]  # Danh sách các lớp mỗi người dùng

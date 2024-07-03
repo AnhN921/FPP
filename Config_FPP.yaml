@@ -1,0 +1,7 @@
+host: 100.95.25.52
+log_file_name:
+
+Server:
+  num_round: 10
+  num_device: 2
+Client:

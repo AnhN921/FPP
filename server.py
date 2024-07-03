@@ -10,10 +10,10 @@ from glob_inc.server_fl import *
 from model_api.src.ml_api import aggregated_models, aggregated_models_avg
 from Mnist1 import calculate_prototype_distance, calculate_penalty , train_mnist_noniid, calculate_server_prototypes, Lenet, get_data_loaders, get_mnist,mnist_noniid_lt
 LOG_DIR = 'logs'
-LOG_FILE = f"{LOG_DIR}/app-{datetime.today().strftime('%Y-%m-%d')}.log"
+LOG_FILE = f"{LOG_DIR}/{config['log_file_name']}.log"
 
 
-broke_name = "100.95.25.52"
+broke_name = config["host"]
 n_round = 0
 
 # Create log directory if it doesn't exist
@@ -191,9 +191,9 @@ def on_subscribe(mosq, obj, mid, granted_qos):
 
 
 if __name__ == "__main__":
-    NUM_ROUND = 3
-    NUM_DEVICE = 2
-    global global_model
+    NUM_ROUND = server_config["num_round"]
+    NUM_DEVICE = server_config["num_device"]
+    # global global_model
     client_dict = {}
     client_trainres_dict = {}
     client_trainres_protos = {}

@@ -5,18 +5,7 @@ import json
 # from model_api.src.ml_api import start_training_task
 from Mnist1 import start_training_task_noniid
 
-broker_name = "100.95.25.52"
-
-# global start_line
-start_line = 0
-start_benign = 0
-
-# percent_main_dga = 0.8
-# 1 round
-# total_data_dgas = 1980
-num_line = 50
-num_file = 1
-
+broker_name = config["host"]
 
 # chi tinh main dga nhung so luong benign van = dgas
 # len_dga_types = 1
@@ -37,17 +26,9 @@ def do_evaluate_data():
 
 
 def do_train(client):
-    global start_line
-    global start_benign
-
-
     print_log(f"start training")
     client_id = client._client_id.decode("utf-8")
     result, protos = start_training_task_noniid()
-
-    start_line = start_line + num_line
-    start_benign = start_benign + 10*num_line
-
     # Convert tensors to numpy arrays
     result_np = {key: value.cpu().numpy().tolist() for key, value in result.items()}
     payload = {
